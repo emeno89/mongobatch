@@ -1,5 +1,8 @@
 <?php
 
+//timezone
+date_default_timezone_set("Europe/Moscow");
+
 require_once '../vendor/autoload.php';
 
 //create and setup mongo client
