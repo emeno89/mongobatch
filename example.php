@@ -3,7 +3,7 @@
 //timezone
 date_default_timezone_set("Europe/Moscow");
 
-require_once '../vendor/autoload.php';
+require_once 'vendor/autoload.php';
 
 //create and setup mongo client
 $mongoClient = new \MongoClient();
@@ -13,7 +13,8 @@ $mongoClient = new \MongoClient();
  * but you can create your own provider, which implements CacheInterface (@see http://www.php-fig.org/psr/psr-16/)
  * and pass them to MongoBatch constructor for enable caching
  */
-$cacheClient = new \MongoBatch\CacheProvider\RedisCache(new \Predis\Client());
+//$cacheClient = new \MongoBatch\CacheProvider\RedisCache(new \Predis\Client());
+$cacheClient = null;
 
 //use logger for log this example
 $logger = new \Monolog\Logger('batch.logger');
