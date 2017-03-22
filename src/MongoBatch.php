@@ -460,39 +460,7 @@ class MongoBatch
             $this->cacheClient->set($this->prepareCacheKey(), $value, $this->saveStateSeconds);
         }
     }
-
-    /**
-     * @param mixed $lastIterationFieldValue
-     * @param int $iterationDirection
-     */
-    protected function setSaveStateIterationField($lastIterationFieldValue, $iterationDirection)
-    {
-        if (isset($this->filter[$this->iterationField])) {
-
-            $issetValuesArr = $this->filter[$this->iterationField];
-
-            unset($this->filter[$this->iterationField]);
-
-            if (empty($this->filter['$and']) || !is_array($this->filter['$and'])) {
-                $this->filter['$and'] = array();
-            }
-            array_push(
-                $this->filter['$and'], array(
-                    $this->iterationField => $issetValuesArr
-                )
-            );
-            array_push(
-                $this->filter['$and'], array(
-                    $this->iterationField => [$iterationDirection => $lastIterationFieldValue]
-                )
-            );
-        } else {
-            $this->filter[$this->iterationField] = array(
-                $iterationDirection => $lastIterationFieldValue
-            );
-        }
-    }
-
+    
     /**
      *
      * Check incoming data for start batching and throw exceptions when data is bad
