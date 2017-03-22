@@ -23,8 +23,8 @@ use Psr\SimpleCache\CacheInterface;
 class MongoBatch
 {
 
-    /** @var \MongoClient $mongoClient */
-    protected $mongoClient;
+    /** @var \MongoCollection $mongoCollection */
+    protected $mongoCollection;
 
     /** @var CacheInterface $cacheClient */
     protected $cacheClient = null;
@@ -37,12 +37,6 @@ class MongoBatch
 
     /** @var string $iterationCondition */
     protected $iterationCondition;
-
-    /** @var string $dbName */
-    protected $dbName;
-
-    /** @var  string $collection */
-    protected $collectionName;
 
     /** @var int $batchSize */
     protected $batchSize = 100;
@@ -79,12 +73,12 @@ class MongoBatch
 
     /**
      * MongoBatch constructor.
-     * @param \MongoClient $_mongoClient
+     * @param \MongoCollection $_mongoCollection
      * @param CacheInterface $_cacheClient
      */
-    public function __construct(\MongoClient $_mongoClient, CacheInterface $_cacheClient = null)
+    public function __construct(\MongoCollection $_mongoCollection, CacheInterface $_cacheClient = null)
     {
-        $this->mongoClient = $_mongoClient;
+        $this->mongoCollection = $_mongoCollection;
         $this->cacheClient = $_cacheClient;
     }
 
@@ -109,48 +103,6 @@ class MongoBatch
         $this->iterationCondition = $this->iterationSort == 1 ? '$gt' : '$lt';
 
         return $this;
-    }
-
-    /**
-     * @param string $dbName
-     * @return MongoBatch
-     */
-    public function setDbName($dbName)
-    {
-        $this->dbName = trim($dbName);
-        if(empty($this->dbName)){
-            throw new UnexpectedValueException('dbName', $this->dbName);
-        }
-        return $this;
-    }
-
-    /**
-     * @return string
-     */
-    public function getDbName()
-    {
-        return $this->dbName;
-    }
-
-    /**
-     * @param string $collectionName
-     * @return MongoBatch
-     */
-    public function setCollectionName($collectionName)
-    {
-        $this->collectionName = trim($collectionName);
-        if(empty($this->collectionName)){
-            throw new UnexpectedValueException('collectionName', $this->collectionName);
-        }
-        return $this;
-    }
-
-    /**
-     * @return string
-     */
-    public function getCollectionName()
-    {
-        return $this->collectionName;
     }
 
     /**
@@ -332,6 +284,14 @@ class MongoBatch
     }
 
     /**
+     * @return string
+     */
+    public function getCollectionName()
+    {
+        return $this->mongoCollection->getName();
+    }
+
+    /**
      * @param $callbackFunction
      * @return int
      */
@@ -340,15 +300,13 @@ class MongoBatch
 
         $this->ensureExecuteEnvironment($callbackFunction);
 
-        $mongoCollection = $this->getCollection();
-
         if($this->clearIterationCache){
             $this->clearLastIterationValue();
         }
 
         $resultFilter = $this->getPreparedFilter();
 
-        $cursor = $mongoCollection
+        $cursor = $this->mongoCollection
             ->find($resultFilter, $this->fields)
             ->immortal(true)
             ->sort([$this->iterationField => $this->iterationSort]);
@@ -438,21 +396,6 @@ class MongoBatch
     }
 
     /**
-     * @return \MongoCollection
-     */
-    protected function getCollection()
-    {
-
-        $mongoCollection = $this->mongoClient->selectCollection($this->dbName, $this->collectionName);
-
-        if(!$mongoCollection){
-            throw new RuntimeException(__FUNCTION__, 'bad MongoCollection object');
-        }
-
-        return $mongoCollection;
-    }
-
-    /**
      * @param $documentCounter
      */
     protected function doPause($documentCounter)
@@ -503,15 +446,11 @@ class MongoBatch
      */
     protected function ensureExecuteEnvironment($callbackFunction)
     {
+
         if (!is_callable($callbackFunction)) {
             throw new RuntimeException(__FUNCTION__, 'callback function is not callable');
         }
-        if (empty($this->dbName)) {
-            throw new UnexpectedValueException('dbName', $this->dbName);
-        }
-        if (empty($this->collectionName)) {
-            throw new UnexpectedValueException('collectionName', $this->collectionName);
-        }
+
         if(empty($this->iterationField)){
             throw new UnexpectedValueException('iterationField', $this->iterationField);
         }

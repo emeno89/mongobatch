@@ -8,19 +8,22 @@ require_once 'vendor/autoload.php';
 //create and setup mongo client
 $mongoClient = new \MongoClient();
 
+//get collection object and set db name and collection name
+$mongoCollection = $mongoClient->selectCollection('proj', 'users');
+
 /**
  * create and setup provider client (i will use inbox redis and his CacheInterface provider),
  * but you can create your own provider, which implements CacheInterface (@see http://www.php-fig.org/psr/psr-16/)
  * and pass them to MongoBatch constructor for enable caching
  */
-//$cacheClient = new \MongoBatch\CacheProvider\RedisCache(new \Predis\Client());
-$cacheClient = null;
+//$cacheProvider = new \MongoBatch\CacheProvider\RedisCache(new \Predis\Client());
+$cacheProvider = null;
 
 //use logger for log this example
 $logger = new \Monolog\Logger('batch.logger');
 
 //create MongoBatch instance
-$mongoBatch = new \MongoBatch\MongoBatch($mongoClient, $cacheClient);
+$mongoBatch = new \MongoBatch\MongoBatch($mongoCollection, $cacheProvider);
 
 /*
  * for example i will use collection proj.users, structure of document
@@ -43,8 +46,6 @@ try {
 
     $mongoBatch
         ->setIterationField('_id', -1)          //batch by _id ascending
-        ->setDbName('proj')                     //for database proj
-        ->setCollectionName('users')            //for collection users
         ->setFilter($filter)                    //set filter there
         ->setSaveState(true)                    //enable save state
         ->setSaveStateSeconds(60 * 60 * 3)      //set save state to cache seconds = 3 hours
