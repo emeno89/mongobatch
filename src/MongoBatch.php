@@ -13,7 +13,7 @@ use Psr\SimpleCache\CacheInterface;
  * and get data from collection for next
  *
  * Class MongoBatch
- * @package EmenoTools
+ * @package MongoBatch
  * @author Dmitriy Dryutskiy emeno@yandex.ru
  */
 class MongoBatch
@@ -383,13 +383,17 @@ class MongoBatch
 
         $lastIterationValue = $this->getLastIterationValue();
 
-        if(!$lastIterationValue){
-            return array();
-        }
+        if($lastIterationValue) {
 
-        $resultFilter[$this->iterationField] = [
-            $this->iterationCondition => $lastIterationValue
-        ];
+            $synonym = $this->iterationCondition == '$gt' ? '$gte' : '$lte';
+
+            if(isset($resultFilter[$this->iterationField])) {
+                unset($resultFilter[$this->iterationField][$synonym]);
+            }
+
+            $resultFilter[$this->iterationField][$this->iterationCondition] = $lastIterationValue;
+
+        }
 
         return $resultFilter;
     }

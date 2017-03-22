@@ -35,12 +35,14 @@ $mongoBatch = new \MongoBatch\MongoBatch($mongoClient, $cacheClient);
  * and i want to get only active users
  *
  */
-$filter = array('is_active' => true);
+$filter = array(
+    'is_active' => true
+);
 
 try {
 
     $mongoBatch
-        ->setIterationField('_id', 1)           //batch by _id ascending
+        ->setIterationField('_id', -1)          //batch by _id ascending
         ->setDbName('proj')                     //for database proj
         ->setCollectionName('users')            //for collection users
         ->setFilter($filter)                    //set filter there
