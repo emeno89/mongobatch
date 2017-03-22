@@ -9,8 +9,12 @@ use Psr\SimpleCache\CacheInterface;
 
 /**
  *
- * Class for batching large data sets in MongoDB (@see https://www.mongodb.com/what-is-mongodb)
- * and get data from collection for next
+ * MongoBatch tool execute long iterations in mongoDB collections with large data sets.
+ * Also this tool can save last iteration field value in special cache server (using class interface, which implementing
+ * \Psr\SimpleCache\CacheInterface) and uses this value for run from last document in subsequent launches
+ *
+ * Tool uses native mongoDB mechanism batchSize
+ * @see https://docs.mongodb.com/manual/reference/method/cursor.batchSize/
  *
  * Class MongoBatch
  * @package MongoBatch
@@ -23,7 +27,7 @@ class MongoBatch
     protected $mongoClient;
 
     /** @var CacheInterface $cacheClient */
-    protected $cacheClient;
+    protected $cacheClient = null;
 
     /** @var int $iterationField */
     protected $iterationField;
@@ -69,6 +73,9 @@ class MongoBatch
 
     /** @var bool $calcCount */
     protected $calcCount = true;
+
+    /** @var bool $clearKeyAfter */
+    protected $clearKeyAfter = false;
 
     /**
      * MongoBatch constructor.
@@ -309,6 +316,22 @@ class MongoBatch
     }
 
     /**
+     * @param bool $_clearKeyAfter
+     */
+    public function setClearKeyAfter($_clearKeyAfter)
+    {
+        $this->clearKeyAfter = (bool)$_clearKeyAfter;
+    }
+
+    /**
+     * @return bool
+     */
+    public function getClearKeyAfter()
+    {
+        return $this->clearKeyAfter;
+    }
+
+    /**
      * @param $callbackFunction
      * @return int
      */
@@ -319,8 +342,8 @@ class MongoBatch
 
         $mongoCollection = $this->getCollection();
 
-        if($this->cacheClient && $this->clearIterationCache){
-            $this->cacheClient->delete($this->prepareCacheKey());
+        if($this->clearIterationCache){
+            $this->clearLastIterationValue();
         }
 
         $resultFilter = $this->getPreparedFilter();
@@ -360,6 +383,10 @@ class MongoBatch
             $this->saveLastIterationValue($data[$this->iterationField]);
 
             $this->doPause($documentCounter);
+        }
+
+        if($this->clearKeyAfter) {
+            $this->clearLastIterationValue();
         }
 
         return $documentCounter;
@@ -460,7 +487,14 @@ class MongoBatch
             $this->cacheClient->set($this->prepareCacheKey(), $value, $this->saveStateSeconds);
         }
     }
-    
+
+    protected function clearLastIterationValue()
+    {
+        if($this->cacheClient){
+            $this->cacheClient->delete($this->prepareCacheKey());
+        }
+    }
+
     /**
      *
      * Check incoming data for start batching and throw exceptions when data is bad
