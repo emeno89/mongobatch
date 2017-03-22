@@ -31,6 +31,9 @@ class MongoBatch
     /** @var string|int $iterationSort */
     protected $iterationSort;
 
+    /** @var string $iterationCondition */
+    protected $iterationCondition;
+
     /** @var string $dbName */
     protected $dbName;
 
@@ -62,7 +65,7 @@ class MongoBatch
     protected $clearIterationCache = false;
 
     /** @var int $limit */
-    protected $limit = -1;
+    protected $limit = 0;
 
     /** @var bool $calcCount */
     protected $calcCount = true;
@@ -72,7 +75,7 @@ class MongoBatch
      * @param \MongoClient $_mongoClient
      * @param CacheInterface $_cacheClient
      */
-    public function __construct(\MongoClient $_mongoClient, CacheInterface $_cacheClient)
+    public function __construct(\MongoClient $_mongoClient, CacheInterface $_cacheClient = null)
     {
         $this->mongoClient = $_mongoClient;
         $this->cacheClient = $_cacheClient;
@@ -95,6 +98,8 @@ class MongoBatch
         } else {
             throw new InvalidArgumentException('iterationSort', $iterationSort);
         }
+
+        $this->iterationCondition = $this->iterationSort == 1 ? '$gt' : '$lt';
 
         return $this;
     }
@@ -312,33 +317,18 @@ class MongoBatch
 
         $this->ensureExecuteEnvironment($callbackFunction);
 
-        $mongoCollection = $this->mongoClient->selectCollection($this->dbName, $this->collectionName);
+        $mongoCollection = $this->getCollection();
 
-        if(!$mongoCollection){
-            throw new RuntimeException(__FUNCTION__, 'bad MongoCollection object');
+        if($this->cacheClient && $this->clearIterationCache){
+            $this->cacheClient->delete($this->prepareCacheKey());
         }
 
-        $cacheKey = $this->prepareCacheKey();
-        $iterationDirection = $this->iterationSort == 1 ? '$gt' : '$lt';
+        $resultFilter = $this->getPreparedFilter();
 
-        if ($this->clearIterationCache && !empty($cacheKey)) {
-            $this->cacheClient->delete($cacheKey);
-        }
-
-        $lastIterationFieldValue = null;
-        if($this->saveState){
-            $lastIterationFieldValue = (string)$this->cacheClient->get($cacheKey);
-        }
-
-        if($lastIterationFieldValue){
-            $this->setSaveStateIterationField($lastIterationFieldValue, $iterationDirection);
-        }
-
-        $cursor = $mongoCollection->find($this->filter, $this->fields);
-
-        $cursor->immortal(true);
-
-        $cursor->sort([$this->iterationField => $this->iterationSort]);
+        $cursor = $mongoCollection
+            ->find($resultFilter, $this->fields)
+            ->immortal(true)
+            ->sort([$this->iterationField => $this->iterationSort]);
 
         if ($this->limit) {
             $cursor->limit($this->getLimit());
@@ -354,35 +344,22 @@ class MongoBatch
 
         while($data = $cursor->getNext()){
 
-            if(!isset($data[$this->iterationField]) || empty($data[$this->iterationField])){
-                throw new RuntimeException(__FUNCTION__, "data[{$this->iterationField}] cannot be empty");
-            }
+            $this->ensureData($data);
+
+            $documentCounter++;
+
+            $this->invokeCallback($callbackFunction, $data, $documentCounter, $queryResultsCount);
 
             if(
-                $documentCounter &&
-                ($documentCounter % $this->batchSize) == 0 &&
-                $this->pause > 0.00
+                $queryResultsCount > 0 &&
+                $documentCounter >= $queryResultsCount
             ){
-                usleep($this->pause * 1000000);
-            }
-
-            if($queryResultsCount > 0 && $documentCounter >= $queryResultsCount){
                 break;
             }
 
-            $callbackData = array(
-                $data,
-                $documentCounter,
-                $queryResultsCount
-            );
+            $this->saveLastIterationValue($data[$this->iterationField]);
 
-            call_user_func_array($callbackFunction, $callbackData);
-
-            if($this->saveState){
-                $this->cacheClient->set($cacheKey, $data[$this->iterationField], $this->saveStateSeconds);
-            }
-
-            $documentCounter++;
+            $this->doPause($documentCounter);
         }
 
         return $documentCounter;
@@ -394,6 +371,90 @@ class MongoBatch
     protected function prepareCacheKey()
     {
         return $this->cacheKeyPrefix.":{$this->iterationField}:{$this->iterationSort}";
+    }
+
+    /**
+     * @return array
+     */
+    protected function getPreparedFilter()
+    {
+
+        $resultFilter = $this->filter;
+
+        $lastIterationValue = $this->getLastIterationValue();
+
+        if(!$lastIterationValue){
+            return array();
+        }
+
+        $resultFilter[$this->iterationField] = [
+            $this->iterationCondition => $lastIterationValue
+        ];
+
+        return $resultFilter;
+    }
+
+    /**
+     * @return mixed|null
+     */
+    protected function getLastIterationValue()
+    {
+        if(!$this->saveState || !$this->cacheClient){
+            return null;
+        }
+
+        return $this->cacheClient->get($this->prepareCacheKey(), null);
+    }
+
+    /**
+     * @return \MongoCollection
+     */
+    protected function getCollection()
+    {
+
+        $mongoCollection = $this->mongoClient->selectCollection($this->dbName, $this->collectionName);
+
+        if(!$mongoCollection){
+            throw new RuntimeException(__FUNCTION__, 'bad MongoCollection object');
+        }
+
+        return $mongoCollection;
+    }
+
+    /**
+     * @param $documentCounter
+     */
+    protected function doPause($documentCounter)
+    {
+        if(($documentCounter % $this->batchSize) == 0 && $this->pause > 0.00){
+            usleep($this->pause * 1000000);
+        }
+    }
+
+    /**
+     * @param $callbackFunction
+     * @param array $data
+     * @param int $documentCounter
+     * @param int $queryResultsCount
+     */
+    protected function invokeCallback($callbackFunction, $data, $documentCounter, $queryResultsCount)
+    {
+        call_user_func_array($callbackFunction, array(
+                $data,
+                $documentCounter,
+                $queryResultsCount
+            )
+        );
+    }
+
+    /**
+     * @param mixed $value
+     */
+    protected function saveLastIterationValue($value)
+    {
+        if($this->saveState && $this->cacheClient){
+            $this->cacheClient->set($this->prepareCacheKey(), $value, $this->saveStateSeconds);
+        }
     }
 
     /**
@@ -450,6 +511,19 @@ class MongoBatch
         }
         if(empty($this->iterationSort)){
             throw new UnexpectedValueException('iterationSort', $this->iterationSort);
+        }
+    }
+
+    /**
+     * @param array $data
+     */
+    protected function ensureData(array $data)
+    {
+        if(
+            !isset($data[$this->iterationField]) ||
+            empty($data[$this->iterationField])
+        ){
+            throw new RuntimeException(__FUNCTION__, "data[{$this->iterationField}] cannot be empty");
         }
     }
 }
