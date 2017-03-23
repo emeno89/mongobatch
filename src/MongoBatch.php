@@ -316,6 +316,7 @@ class MongoBatch
 
         $cursor = $this->mongoCollection
             ->find($resultFilter, $this->fields)
+            ->batchSize($this->batchSize)
             ->immortal(true)
             ->sort([$this->iterationField => $this->iterationSort]);
 
