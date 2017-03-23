@@ -48,7 +48,7 @@ class RedisCache implements CacheInterface
      */
     public function set($key, $value, $ttl = null)
     {
-        return (bool)$this->redisClient->set($key, serialize($value), $ttl);
+        return (bool)$this->redisClient->setex($key, $ttl, serialize($value));
     }
 
     /**
@@ -90,7 +90,7 @@ class RedisCache implements CacheInterface
                 $value = unserialize($value);
             }
 
-            $values[] = $value;
+            $values[$key] = $value;
         }
 
         return $values;
@@ -103,7 +103,7 @@ class RedisCache implements CacheInterface
     public function setMultiple($values, $ttl = null)
     {
         foreach($values as $key => $value){
-            $this->redisClient->set($key, serialize($value), $ttl);
+            $this->redisClient->setex($key, $ttl, serialize($value));
         }
 
         return true;

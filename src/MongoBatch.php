@@ -83,21 +83,22 @@ class MongoBatch
     }
 
     /**
-     * @param string $iterationField
-     * @param int|string $iterationSort
+     *
+     * @param string $_iterationField
+     * @param int|string $_iterationSort
      * @return $this
      * @throws \MongoBatch\Exception\InvalidArgumentException
      */
-    public function setIterationField($iterationField, $iterationSort = 1)
+    public function setIterationField($_iterationField, $_iterationSort = 1)
     {
-        $this->iterationField = $iterationField;
+        $this->iterationField = $_iterationField;
 
-        if (is_int($iterationSort)) {
-            $this->iterationSort = $iterationSort == 1 ? 1 : -1;
-        } else if (is_string($iterationSort)) {
-            $this->iterationSort = $iterationSort == 'asc' ? 1 : -1;
+        if (is_int($_iterationSort)) {
+            $this->iterationSort = $_iterationSort == 1 ? 1 : -1;
+        } else if (is_string($_iterationSort)) {
+            $this->iterationSort = $_iterationSort == 'asc' ? 1 : -1;
         } else {
-            throw new InvalidArgumentException('iterationSort', $iterationSort);
+            throw new InvalidArgumentException('iterationSort', $_iterationSort);
         }
 
         $this->iterationCondition = $this->iterationSort == 1 ? '$gt' : '$lt';
@@ -106,12 +107,12 @@ class MongoBatch
     }
 
     /**
-     * @param array $filter
-     * @return MongoBatch
+     * @param array $_filter
+     * @return $this
      */
-    public function setFilter(array $filter = array())
+    public function setFilter(array $_filter)
     {
-        $this->filter = $filter;
+        $this->filter = $_filter;
         return $this;
     }
 
@@ -124,12 +125,12 @@ class MongoBatch
     }
 
     /**
-     * @param array $fields
-     * @return static
+     * @param array $_fields
+     * @return $this
      */
-    public function setFields(array $fields = array())
+    public function setFields(array $_fields)
     {
-        $this->fields = $fields;
+        $this->fields = $_fields;
         return $this;
     }
 
@@ -142,12 +143,13 @@ class MongoBatch
     }
 
     /**
-     * @param int $batchSize
-     * @return MongoBatch
+     * @param int $_batchSize
+     * @return $this
+     * @throws \MongoBatch\Exception\UnexpectedValueException
      */
-    public function setBatchSize($batchSize = 100)
+    public function setBatchSize($_batchSize)
     {
-        $this->batchSize = (int)$batchSize;
+        $this->batchSize = (int)$_batchSize;
 
         if($this->batchSize <= 1){
             throw new UnexpectedValueException('batchSize', $this->batchSize);
@@ -165,12 +167,12 @@ class MongoBatch
     }
 
     /**
-     * @param $saveState
-     * @return MongoBatch
+     * @param $_saveState
+     * @return $this
      */
-    public function setSaveState($saveState)
+    public function setSaveState($_saveState)
     {
-        $this->saveState = (bool)$saveState;
+        $this->saveState = (bool)$_saveState;
         return $this;
     }
 
@@ -183,12 +185,12 @@ class MongoBatch
     }
 
     /**
-     * @param float $pause
-     * @return MongoBatch
+     * @param float $_pause
+     * @return $this
      */
-    public function setPause($pause)
+    public function setPause($_pause)
     {
-        $this->pause = (float)$pause;
+        $this->pause = (float)$_pause;
         return $this;
     }
 
@@ -201,12 +203,12 @@ class MongoBatch
     }
 
     /**
-     * @param $seconds
-     * @return MongoBatch
+     * @param $_seconds
+     * @return $this
      */
-    public function setSaveStateSeconds($seconds)
+    public function setSaveStateSeconds($_seconds)
     {
-        $this->saveStateSeconds = (int)$seconds;
+        $this->saveStateSeconds = (int)$_seconds;
         return $this;
     }
 
@@ -219,12 +221,13 @@ class MongoBatch
     }
 
     /**
-     * @param int $limit
-     * @return self
+     * @param int $_limit
+     * @return $this
+     * @throws \MongoBatch\Exception\UnexpectedValueException
      */
-    public function setLimit($limit)
+    public function setLimit($_limit)
     {
-        $this->limit = (int)$limit;
+        $this->limit = (int)$_limit;
 
         if($this->limit <= 0){
             throw new UnexpectedValueException('limit', $this->limit);
@@ -242,12 +245,12 @@ class MongoBatch
     }
 
     /**
-     * @param bool $clearIterationCache
+     * @param bool $_clearIterationCache
      * @return $this
      */
-    public function setClearIterationCache($clearIterationCache)
+    public function setClearIterationCache($_clearIterationCache)
     {
-        $this->clearIterationCache = (bool)$clearIterationCache;
+        $this->clearIterationCache = (bool)$_clearIterationCache;
         return $this;
     }
 
@@ -260,19 +263,24 @@ class MongoBatch
     }
 
     /**
-     * @param bool $calcCount
+     * @param bool $_calcCount
+     * @return $this
      */
-    public function setCalcCount($calcCount)
+    public function setCalcCount($_calcCount)
     {
-        $this->calcCount = (bool)$calcCount;
+        $this->calcCount = (bool)$_calcCount;
+        return $this;
     }
 
     /**
      * @param bool $_clearKeyAfter
+     * @return $this
      */
     public function setClearKeyAfter($_clearKeyAfter)
     {
         $this->clearKeyAfter = (bool)$_clearKeyAfter;
+
+        return $this;
     }
 
     /**
@@ -331,14 +339,14 @@ class MongoBatch
 
             $this->invokeCallback($callbackFunction, $data, $documentCounter, $queryResultsCount);
 
+            $this->saveLastIterationValue($data[$this->iterationField]);
+
             if(
                 $queryResultsCount > 0 &&
                 $documentCounter >= $queryResultsCount
             ){
                 break;
             }
-
-            $this->saveLastIterationValue($data[$this->iterationField]);
 
             $this->doPause($documentCounter);
         }

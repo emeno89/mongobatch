@@ -1,7 +1,17 @@
 {
+    "name": "mongobatch",
+    "type": "library",
+    "description": "PHP mongo batch tool",
+    "keywords": ["batch", "database", "mongodb"],
+    "license": "MIT",
+    "authors": [
+        { "name": "Dmitriy Dryutskiy", "email": "emeno@yandex.ru" }
+    ],
     "require": {
+        "php": "^5.6 || ^7.0",
         "psr/simple-cache": "^1.0",
-        "predis/predis": "^1.0"
+        "predis/predis": "^1.0",
+        "ext-mongo": "^1.5"
     },
     "require-dev": {
         "psr/log": "^1.0",
