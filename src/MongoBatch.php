@@ -338,7 +338,12 @@ class MongoBatch
 
             $documentCounter++;
 
-            $this->invokeCallback($callbackFunction, $data, $documentCounter, $queryResultsCount);
+            $invokeResult = $this->invokeCallback($callbackFunction, $data, $documentCounter, $queryResultsCount);
+
+            //stop loop, if callback function returned false
+            if(!$invokeResult){
+                break;
+            }
 
             $this->saveLastIterationValue($data[$this->iterationField]);
 
@@ -419,10 +424,11 @@ class MongoBatch
      * @param array $data
      * @param int $documentCounter
      * @param int $queryResultsCount
+     * @return bool
      */
     protected function invokeCallback($callbackFunction, $data, $documentCounter, $queryResultsCount)
     {
-        call_user_func_array($callbackFunction, array(
+        return (bool)call_user_func_array($callbackFunction, array(
                 $data,
                 $documentCounter,
                 $queryResultsCount
@@ -455,11 +461,9 @@ class MongoBatch
      */
     protected function ensureExecuteEnvironment($callbackFunction)
     {
-
         if (!is_callable($callbackFunction)) {
             throw new RuntimeException(__FUNCTION__, 'callback function is not callable');
         }
-
         if(empty($this->iterationField)){
             throw new UnexpectedValueException('iterationField', $this->iterationField);
         }
