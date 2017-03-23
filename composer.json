@@ -1,6 +1,6 @@
 {
-    "name": "mongobatch",
-    "type": "library",
+    "name": "emeno89/mongobatch",
+    "type": "package",
     "description": "PHP mongo batch tool",
     "keywords": ["batch", "database", "mongodb"],
     "license": "MIT",
