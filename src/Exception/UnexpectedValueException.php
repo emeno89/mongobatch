@@ -24,6 +24,8 @@ class UnexpectedValueException extends \UnexpectedValueException
      */
     public function __construct($_variableName, $_variableValue, \Exception $_previous = null)
     {
+        $this->variableName = $_variableName;
+        $this->variableValue = $_variableValue;
         $message = 'Unexpected value '.$_variableName.' = '.(string)$_variableValue;
         parent::__construct($message, 0, $_previous);
     }
